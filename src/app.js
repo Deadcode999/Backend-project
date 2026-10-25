@@ -9,6 +9,9 @@ app.use(cors({
 
 app.use(e.json())
 app.use(e.urlencoded({extended:true}))
- 
+
+import userRouter from "./routes/user.route.js";
+
+app.use("/api/v1/users",userRouter)
 
 export {app}
