@@ -28,20 +28,18 @@ const userSchema = mongoose.Schema({
     },
     refreshToken: {
         type: String,
-        required: true
     },
     watchHistory: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: Video
+        ref: 'Video'
     }
 },
     { timestamps: true })
 
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (!this.isModified('password')) return next()
 
     this.password = await bcrypt.hash(this.password, 10)
-    next()
 })
 
 userSchema.methods.isPasswordCorrect = async function (password) {
@@ -49,7 +47,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 }
 
 userSchema.methods.genAccessToken = function () {
-    jwt.sign(
+    return jwt.sign(
         {
             _id: this.user_id,
             username: this.username,
@@ -64,11 +62,9 @@ userSchema.methods.genAccessToken = function () {
 }
 
 userSchema.methods.genRefreshToken = function () {
-    jwt.sign(
+    return jwt.sign(
         {
             _id: this.user_id,
-            username: this.username,
-            email: this.email
         },
         process.env.REFRESH_TOKEN_SECRET,
         {

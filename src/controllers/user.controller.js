@@ -1,6 +1,24 @@
-import { User } from "../models/users.model"
+import { User } from "../models/users.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { apiResponse } from "../utils/ApiResponse.js"
+
+
+
+const generateAccessAndRefreshToken = async (user_id) => { 
+    try {
+        const user = User.findOne({ _id: user_id })
+        const accessToken = user.genAccessToken()
+        const refreshToken = user.genRefreshToken()
+
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+
+        return { accessToken, refreshToken }
+
+    } catch (error) {
+        console.error("error while generating Access and Refresh Token!", error)
+    }
+}
 
 const registerUser = async (req, res) => {
     const { username, fullname, email, password } = req.body
@@ -9,7 +27,7 @@ const registerUser = async (req, res) => {
         return res.status(400).json({ message: "All fields are required and cannot be empty." })
     }
 
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ email }, { username }]
     })
 
@@ -19,21 +37,21 @@ const registerUser = async (req, res) => {
         })
     }
 
-    const avatarPath = req.files?.avatar[0]?.path
-    const coverImagePath = req.files?.coverImage[0]?.path
+    const avatarPath = req.files?.avatar?.[0]?.path
+    const coverImagePath = req.files?.coverImage?.[0]?.path
 
     if (!avatarPath) {
         return res.status(400).json({ message: "Avatar file is required." })
     }
 
     const avatar = await uploadOnCloudinary(avatarPath)
-    const coverImage = await uploadOnCloudinary(avatarPath)
+    const coverImage = await uploadOnCloudinary(coverImagePath)
 
     if (!avatar) {
-        return res.status(400).json({ message: "Avatar file is required." })
+        return res.status(400).json({ message: "file is required." })
     }
 
-    const user = User.create({
+    const user = await User.create({
         username: username.toLowerCase(),
         fullname: fullname,
         email: email,
@@ -56,4 +74,42 @@ const registerUser = async (req, res) => {
 
 }
 
-export { registerUser }
+const loginUser = async (req, res) => {
+    const { username, password } = req.body
+
+    if (!username || !password) {
+        res.status(400).json({ message: "All feild are required." })
+    }
+
+    const user = await User.findOne({ username: username })
+
+    if (!user) {
+        res.status(401).json({ message: "Invalid username or password" })
+    }
+
+    const isPasswordValid = await user.isPasswordCorrect(password)
+
+    if (!isPasswordValid) {
+        res.status(401).json({ message: "Invalid username or password" })
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+
+    const loggedInUser = User.findById(user._id).select(
+        "-password -refreshToken"
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    res.status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new apiResponse(200, { loggedInUser, accessToken, refreshToken }, "User login successfully.")
+        )
+}
+
+export { registerUser, loginUser }
