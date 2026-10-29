@@ -1,6 +1,7 @@
 import { User } from "../models/users.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { apiResponse } from "../utils/ApiResponse.js"
+import jwt from "jsonwebtoken"
 
 
 const generateAccessAndRefreshToken = async (user_id) => {
@@ -117,7 +118,7 @@ const logoutUser = async (req, res) => {
     await User.findByIdAndUpdate(
         user._id,
         {
-            $set: { refreshToken: undefined }
+            $unset: { refreshToken: 1 }
         },
         { new: true }
     )
@@ -136,4 +137,73 @@ const logoutUser = async (req, res) => {
 
 }
 
-export { registerUser, loginUser, logoutUser }
+const refreshAccessToken = async (req, res) => {
+    const token = req.cookies?.refreshToken
+
+    if (!token) {
+        return res.status(401).json({ message: "Unauthorized token!" })
+    }
+
+    const decodedToken = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET)
+
+    const user = await User.findById(decodedToken?._id)
+
+    if (!user) {
+        return res.status(401).json({ message: "Unauthorized token!" })
+    }
+
+    if (token !== user.refreshToken) {
+        return res.status(401).json({ message: "refresh token is expired or used." })
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    res.status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new apiResponse(200, { accessToken, refreshToken }, "Token refresh successfully.")
+        )
+}
+
+const changeCurrentPassword = async (req, res) => {
+    const { oldPassword, newPassword, confirmPassword } = req.body
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        res.status(400).json({ message: "All field are required." })
+    }
+
+    if (newPassword !== confirmPassword) {
+        res.status(401).json({ message: "New password and Confirm password must be same." })
+    }
+
+    const user = await User.findById(req.user?._id)
+
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+    if (!isPasswordCorrect) {
+        res.status(401).json({ message: "Invalid password !" })
+    }
+
+    user.password = newPassword
+    await user.save({ validateBeforeSave: false })
+
+    return res.status(200)
+        .json(new apiResponse(200, {}, "password chnage successfully."))
+
+}
+
+const getCurrentUser = async (req, res) => {
+    const user = req.user
+
+    return res.status(200)
+        .json(new apiResponse(200, user, "User found successfully."))
+}
+
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser }
