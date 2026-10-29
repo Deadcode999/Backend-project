@@ -5,7 +5,7 @@ import { apiResponse } from "../utils/ApiResponse.js"
 
 const generateAccessAndRefreshToken = async (user_id) => {
     try {
-        const user = User.findOne({ _id: user_id })
+        const user = await User.findOne({ _id: user_id })
         const accessToken = user.genAccessToken()
         const refreshToken = user.genRefreshToken()
 
@@ -94,7 +94,7 @@ const loginUser = async (req, res) => {
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
 
-    const loggedInUser = User.findById(user._id).select(
+    const loggedInUser = await User.findById(user._id).select(
         "-password -refreshToken"
     )
 
@@ -135,4 +135,5 @@ const logoutUser = async (req, res) => {
         )
 
 }
+
 export { registerUser, loginUser, logoutUser }
