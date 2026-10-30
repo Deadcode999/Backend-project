@@ -205,5 +205,82 @@ const getCurrentUser = async (req, res) => {
         .json(new apiResponse(200, user, "User found successfully."))
 }
 
+const updateFullname = async (req, res) => {
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser }
+    const { newFullname } = req.body
+
+    if (!newFullname) {
+        res.status(400).json({ message: "All field are required." })
+    }
+
+    const user = req.user
+
+    const updatedUser = await User.findByIdAndUpdate(user?._id,
+        {
+            $set: { fullname: newFullname }
+        },
+        {
+            new: true
+        }).select(
+            "-password -refreshToken"
+        )
+
+    return res.status(200)
+        .json(new apiResponse(200, updatedUser, "User updated successfully."))
+}
+
+const updateAvatar = async (req, res) => {
+    const avatarPath = req.file?.path
+
+    if (!avatarPath) {
+        return res.status(400).json({ message: "Avatar file is required." })
+    }
+
+    const avatar = await uploadOnCloudinary(avatarPath)?.url
+
+    if (!avatar) {
+        return res.status(500).json({ message: "Error while uploading in cloudinary!" })
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user?._id,
+        {
+            $set: { avatar }
+        },
+        { new: true }).select(
+            "-password -refreshToken"
+        )
+
+
+    return res.status(200)
+        .json(new apiResponse(200, updatedUser, "User updated successfully."))
+
+}
+
+const updateCoverImage = async (req, res) => {
+    const coverImagePath = req.file?.path
+
+    if (!coverImagePath) {
+        return res.status(400).json({ message: "Avatar file is required." })
+    }
+
+    const coverImage = await uploadOnCloudinary(coverImagePath)?.url
+
+    if (!coverImage) {
+        return res.status(500).json({ message: "Error while uploading on cloudinary!" })
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(req.user?._id,
+        {
+            $set: { coverimage: coverImage }
+        },
+        { new: true }).select(
+            "-password -refreshToken"
+        )
+
+
+    return res.status(200)
+        .json(new apiResponse(200, updatedUser, "User updated successfully."))
+
+}
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateFullname, updateAvatar, updateCoverImage }
