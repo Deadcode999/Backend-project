@@ -2,6 +2,7 @@ import { User } from "../models/users.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { apiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 
 const generateAccessAndRefreshToken = async (user_id) => {
@@ -346,4 +347,48 @@ const getChannel = async (req, res) => {
 
 }
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateFullname, updateAvatar, updateCoverImage }
+const getWatchHistory = async (req, res) => {
+    const user = User.aggregate([
+        {
+            $match: { _id: new mongoose.Types.ObjectId(req.user?._id) }
+        },
+        {
+            $lookup: {
+                form: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            form: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        username: 1,
+                                        fullname: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: { $first: "$owner" }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+        .status(200)
+        .json(new apiResponse(200, user[0].watchHistory, "Watch history fetch successfully."))
+}
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateFullname, updateAvatar, updateCoverImage, getChannel, getWatchHistory }
