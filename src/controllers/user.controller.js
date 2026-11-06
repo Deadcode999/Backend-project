@@ -348,20 +348,20 @@ const getChannel = async (req, res) => {
 }
 
 const getWatchHistory = async (req, res) => {
-    const user = User.aggregate([
+    const user = await User.aggregate([
         {
             $match: { _id: new mongoose.Types.ObjectId(req.user?._id) }
         },
         {
             $lookup: {
-                form: "videos",
+                from: "videos",
                 localField: "watchHistory",
                 foreignField: "_id",
                 as: "watchHistory",
                 pipeline: [
                     {
                         $lookup: {
-                            form: "users",
+                            from: "users",
                             localField: "owner",
                             foreignField: "_id",
                             as: "owner",
